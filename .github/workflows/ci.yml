@@ -240,7 +240,8 @@ jobs:
           command: sdist
           args: --out dist
 
-      # Maturin selects one stable ABI family per invocation.
+      # Mixing regular and free-threaded interpreters in one maturin call
+      # produces a version-specific regular wheel instead of the abi3 wheel.
       - name: build abi3 wheel for regular CPython >= 3.10
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -248,19 +249,12 @@ jobs:
           manylinux: ${{ matrix.manylinux || 'auto' }}
           args: --release --out dist --interpreter 3.10
 
-      - name: build version-specific 3.14t wheel
+      - name: build free-threaded 3.14t and abi3t 3.15+ wheels
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --interpreter 3.14t
-
-      - name: build abi3t wheel for CPython >= 3.15
-        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
-        with:
-          target: ${{ matrix.target }}
-          manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --interpreter 3.15t
+          args: --release --out dist --interpreter 3.14t 3.15t
 
       - name: build pypy wheels
         if: ${{ matrix.pypy }}
