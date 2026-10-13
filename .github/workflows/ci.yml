@@ -228,7 +228,7 @@ jobs:
           command: sdist
           args: --out dist
 
-      # Maturin selects one stable ABI family per invocation.
+      # Keep the regular abi3 build separate from free-threaded interpreters.
       - name: build abi3 wheel for regular CPython >= 3.10
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
@@ -236,19 +236,12 @@ jobs:
           manylinux: ${{ matrix.manylinux || 'auto' }}
           args: --release --out dist --interpreter 3.10
 
-      - name: build version-specific 3.14t wheel
+      - name: build free-threaded 3.14t and abi3t 3.15+ wheels
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
         with:
           target: ${{ matrix.target }}
           manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --interpreter 3.14t
-
-      - name: build abi3t wheel for CPython >= 3.15
-        uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
-        with:
-          target: ${{ matrix.target }}
-          manylinux: ${{ matrix.manylinux || 'auto' }}
-          args: --release --out dist --interpreter 3.15t
+          args: --release --out dist --interpreter 3.14t 3.15t
 
       - name: build pypy wheels
         if: ${{ matrix.pypy }}
@@ -296,7 +289,7 @@ jobs:
         run: ls dist/*cp310-abi3-manylinux_2_17_x86_64*.whl | head -n 1
 
       - name: check abi3t wheel file
-        run: ls dist/*cp315-abi3.abi3t-*.whl | head -n 1
+        run: ls dist/*cp315-abi3.abi3t-*.whl
 
       - name: extract and list wheel file
         run: python -m zipfile --list `ls dist/*cp310-abi3-manylinux_2_17_x86_64*.whl | head -n 1`
