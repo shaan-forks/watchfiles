@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - ci/abi3t-full-ci-validation
     tags:
       - "**"
   pull_request: {}
@@ -83,8 +84,19 @@ jobs:
 
       - run: uv run python -c 'import sys; print("free threading enable:", hasattr(sys, "_is_gil_enabled") and not sys._is_gil_enabled())'
 
-      - if: endsWith(matrix.python-version, 't')
-        run: uv run python -c 'import sys, watchfiles; assert not sys._is_gil_enabled()'
+      - name: Verify watchfiles import keeps the GIL disabled
+        if: endsWith(matrix.python-version, 't')
+        shell: bash
+        run: |
+          uv run python - <<'PY'
+          import sys
+          import sysconfig
+
+          assert sysconfig.get_config_var('Py_GIL_DISABLED') == 1, 'expected free-threaded Python'
+          assert not sys._is_gil_enabled(), 'GIL enabled before importing watchfiles'
+          import watchfiles
+          assert not sys._is_gil_enabled(), 'importing watchfiles enabled the GIL'
+          PY
 
       - run: make test
         env:
