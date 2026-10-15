@@ -1,0 +1,74 @@
+name: validation ordinary 315 wheels 20261015
+
+on:
+  push:
+    branches: [ci/validate-wheel-cleanup-20261015]
+
+permissions: {}
+
+jobs:
+  installed-wheels:
+    name: ${{ matrix.phase }} wheel ${{ matrix.python-version }} on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}-latest
+    permissions:
+      contents: read
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu, macos, windows]
+        python-version: ["3.15"]
+        phase: [candidate]
+        include:
+          - os: ubuntu
+            artifact: pypi_files_ubuntu_x86_64_auto
+          - os: macos
+            artifact: pypi_files_macos_aarch64_auto
+          - os: windows
+            artifact: pypi_files_windows_x86_64_auto
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: astral-sh/setup-uv@bec219d24cd3e171d82865faccec33120bb574f4 # v10.1.0
+      - name: verify immutable artifact source
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$(gh api repos/shaan-forks/watchfiles/actions/runs/38742677222 --jq .head_sha)" = c40aab8e4346c4a9445d7b0e81b5789c972ddc48
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: ${{ matrix.artifact }}
+          path: wheel-artifacts
+          repository: shaan-forks/watchfiles
+          run-id: 38742677222
+          github-token: ${{ github.token }}
+      - name: prepare preexisting test fixtures and isolated environment
+        shell: bash
+        env:
+          UV_PYTHON: ${{ matrix.python-version }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/watchfiles-fixtures"
+          cp -r tests/test_files "$RUNNER_TEMP/watchfiles-fixtures/native"
+          cp -r tests/test_files "$RUNNER_TEMP/watchfiles-fixtures/polling"
+          uv export --frozen --no-emit-project --format requirements-txt --output-file "$RUNNER_TEMP/watchfiles-requirements.txt"
+          uv venv --python "${{ matrix.python-version }}" "$RUNNER_TEMP/watchfiles-installed"
+          if [[ "$RUNNER_OS" == "Windows" ]]; then
+            python_bin="$RUNNER_TEMP/watchfiles-installed/Scripts/python.exe"
+          else
+            python_bin="$RUNNER_TEMP/watchfiles-installed/bin/python"
+          fi
+          echo "WHEEL_PYTHON=$python_bin" >> "$GITHUB_ENV"
+          uv pip sync --python "$python_bin" "$RUNNER_TEMP/watchfiles-requirements.txt" --require-hashes
+      - name: install candidate artifact from the fully built source candidate
+        if: matrix.phase == 'candidate'
+        shell: bash
+        run: uv pip install --python "$WHEEL_PYTHON" --no-deps --no-index --find-links wheel-artifacts watchfiles==1.3.0
+      - name: verify installed wheel with native and polling backends outside checkout
+        shell: bash
+        run: |
+          uv pip freeze --python "$WHEEL_PYTHON"
+          cp .github/scripts/validate-installed-wheel.py "$RUNNER_TEMP/validate-installed-wheel.py"
+          cd "$RUNNER_TEMP"
+          "$WHEEL_PYTHON" -I validate-installed-wheel.py "${{ matrix.python-version }}" "$GITHUB_WORKSPACE" "$RUNNER_TEMP/watchfiles-fixtures"

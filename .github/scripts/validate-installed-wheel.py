@@ -18,11 +18,14 @@ assert not Path(watchfiles.__file__).resolve().is_relative_to(Path(checkout).res
 assert watchfiles.__version__ == '1.3.0'
 assert sys.version_info[:2] == tuple(map(int, requested.rstrip('t').split('.')))
 wheel_metadata = importlib.metadata.distribution('watchfiles').read_text('WHEEL')
-expected_tag = {'3.10': 'cp310-abi3-', '3.14t': 'cp314-cp314t-', '3.15t': 'cp315-abi3t-'}[requested]
+expected_tag = {'3.10': 'cp310-abi3-', '3.15': 'cp315-abi3-', '3.14t': 'cp314-cp314t-', '3.15t': 'cp315-abi3t-'}[requested]
 assert expected_tag in wheel_metadata, wheel_metadata
 for artifact_dir in ('wheel-artifacts', 'baseline-dist'):
     artifacts = Path(checkout) / artifact_dir
     print(artifact_dir, json.dumps({p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(artifacts.glob('*.whl'))}, indent=2), flush=True)
+if requested == '3.15':
+    assert sysconfig.get_config_var('Py_GIL_DISABLED') != 1
+    assert sys._is_gil_enabled()
 if requested.endswith('t'):
     assert sysconfig.get_config_var('Py_GIL_DISABLED') == 1
     assert not sys._is_gil_enabled()
@@ -59,6 +62,9 @@ for force_polling in (False, True):
             changes = watcher.watch(200, 25, 5000, None)
             print(force_polling, change, changes, flush=True)
             assert isinstance(changes, set) and (change, str(path)) in changes, changes
+if requested == '3.15':
+    assert sysconfig.get_config_var('Py_GIL_DISABLED') != 1
+    assert sys._is_gil_enabled()
 if requested.endswith('t'):
     assert not sys._is_gil_enabled()
 print('installed wheel native and polling behavior passed', flush=True)
