@@ -1,8 +1,7 @@
 name: validation installed full suite 20261015
 
 on:
-  push:
-    branches: [ci/validate-wheel-cleanup-20261015]
+  workflow_dispatch: {}
 
 permissions: {}
 
